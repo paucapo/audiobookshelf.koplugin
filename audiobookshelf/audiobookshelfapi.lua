@@ -156,6 +156,65 @@ function AudiobookshelfApi:getLibraryItemCover(id)
     return nil
 end
 
+function AudiobookshelfApi:getProgress(libraryItemId)
+    local sink = {}
+    local request = {
+        url = self.abs_settings:readSetting("server") .. "/api/me/progress/" .. libraryItemId,
+        method = "GET",
+        headers = {
+            ["Authorization"] = "Bearer " .. self.abs_settings:readSetting("token"),
+            ["User-Agent"] = T("audiobookshelf.koplugin/%1", table.concat(VERSION, ".")),
+        },
+        sink = ltn12.sink.table(sink),
+    }
+    socketutil:set_timeout()
+    local ok, code, _, status = pcall(function() return socket.skip(1, http.request(request)) end)
+    local response = table.concat(sink)
+    socketutil:reset_timeout()
+    if not ok then
+        logger.warn("AudiobookshelfApi: http request failed in getProgress:", code)
+        return nil
+    end
+    if code == 200 and response ~= "" then
+        local _, result = pcall(JSON.decode, response)
+        return result
+    end
+    if code == 404 then
+        return nil
+    end
+    logger.warn("AudiobookshelfApi: cannot get progress for", libraryItemId, status or code)
+    return nil
+end
+
+function AudiobookshelfApi:updateProgress(libraryItemId, progressData)
+    local sink = {}
+    local body = JSON.encode(progressData)
+    local request = {
+        url = self.abs_settings:readSetting("server") .. "/api/me/progress/" .. libraryItemId,
+        method = "PATCH",
+        headers = {
+            ["Authorization"] = "Bearer " .. self.abs_settings:readSetting("token"),
+            ["User-Agent"] = T("audiobookshelf.koplugin/%1", table.concat(VERSION, ".")),
+            ["Content-Type"] = "application/json",
+            ["Content-Length"] = #body,
+        },
+        source = ltn12.source.string(body),
+        sink = ltn12.sink.table(sink),
+    }
+    socketutil:set_timeout()
+    local ok, code, _, status = pcall(function() return socket.skip(1, http.request(request)) end)
+    socketutil:reset_timeout()
+    if not ok then
+        logger.warn("AudiobookshelfApi: http request failed in updateProgress:", code)
+        return false
+    end
+    if code == 200 then
+        return true
+    end
+    logger.warn("AudiobookshelfApi: cannot update progress for", libraryItemId, status or code)
+    return false
+end
+
 function AudiobookshelfApi:getSearchResults(id, search_query)
     local sink = {}
     local url_encoded_search_string = util.urlEncode(search_query)

@@ -122,6 +122,9 @@ function EbookFileWidget:downloadFile()
         UIManager:scheduleIn(1, function()
             local code = AudiobookshelfApi:downloadFile(self.book_id, self.ino, safeFilename, path)
             if code == 200 then
+                -- Save filepath → book_id mapping for progress sync
+                local AudiobookshelfSync = require("audiobookshelf/audiobookshelfsync")
+                AudiobookshelfSync:saveBookMapping(path .. "/" .. safeFilename, self.book_id)
                 local confirm = ConfirmBox:new{
                     text = T(_("File saved to:\n%1\nWould you like to read the downloaded book now?"),
                         BD.filepath(path .. "/" .. safeFilename)),
