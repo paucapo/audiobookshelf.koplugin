@@ -9,6 +9,13 @@ local UIManager = require("ui/uimanager")
 local _ = require("gettext")
 local logger = require("logger")
 
+local function progressPrefix(progress)
+    if not progress then return "○ " end
+    if progress.isFinished then return "● " end
+    if progress.progress and progress.progress > 0 then return "◐ " end
+    return "○ "
+end
+
 local AudiobookshelfBrowser = Menu:extend{
     no_title = false,
     title = _("Audiobookshelf Browser"),
@@ -46,11 +53,13 @@ function AudiobookshelfBrowser:genItemTableFromLibraries()
         return item_table
     end
     for _, library in ipairs(libraries) do
-        table.insert(item_table, {
-            text = library.name,
-            type = "library",
-            id = library.id,
-        })
+        if library.mediaType == "book" then
+            table.insert(item_table, {
+                text = library.name,
+                type = "library",
+                id = library.id,
+            })
+        end
     end
     return item_table
 end
@@ -197,10 +206,12 @@ function AudiobookshelfBrowser:loadLibrarySearch(search)
         return
     end
     logger.warn(libraryItems)
+    local progress_map = AudiobookshelfApi:getAllProgress()
     for _, item in ipairs(libraryItems.book) do
+        local progress = progress_map[item.libraryItem.id]
         table.insert(tbl, {
             id = item.libraryItem.id,
-            text = item.libraryItem.media.metadata.title,
+            text = progressPrefix(progress) .. item.libraryItem.media.metadata.title,
             mandatory = item.libraryItem.media.metadata.authorName,
             type = "book"
         })
@@ -220,11 +231,15 @@ function AudiobookshelfBrowser:openLibrary(id, name)
         })
         return false
     end
+    -- Fetch all user progress in one call
+    local progress_map = AudiobookshelfApi:getAllProgress()
+
     -- Group books by series
     local series_map = {}
     local series_order = {}
 
     for _, item in ipairs(libraryItems) do
+        local progress = progress_map[item.id]
         local seriesName = item.media.metadata.seriesName
         if seriesName and seriesName ~= "" then
             local sname = seriesName:match("^(.+) #[%d%.]+$") or seriesName
@@ -239,11 +254,12 @@ function AudiobookshelfBrowser:openLibrary(id, name)
                 authorName = item.media.metadata.authorName,
                 sequence = tonumber(seq) or 999999,
                 seq_str = seq,
+                progress = progress,
             })
         else
             table.insert(tbl, {
                 id = item.id,
-                text = item.media.metadata.title,
+                text = progressPrefix(progress) .. item.media.metadata.title,
                 mandatory = item.media.metadata.authorName,
                 type = "book"
             })
@@ -276,7 +292,7 @@ function AudiobookshelfBrowser:openSeries(item)
         local prefix = book.seq_str and (book.seq_str .. ". ") or ""
         table.insert(tbl, {
             id = book.id,
-            text = prefix .. book.title,
+            text = progressPrefix(book.progress) .. prefix .. book.title,
             mandatory = book.authorName,
             type = "book"
         })

@@ -156,6 +156,39 @@ function AudiobookshelfApi:getLibraryItemCover(id)
     return nil
 end
 
+function AudiobookshelfApi:getAllProgress()
+    local sink = {}
+    local request = {
+        url = self.abs_settings:readSetting("server") .. "/api/me",
+        method = "GET",
+        headers = {
+            ["Authorization"] = "Bearer " .. self.abs_settings:readSetting("token"),
+            ["User-Agent"] = T("audiobookshelf.koplugin/%1", table.concat(VERSION, ".")),
+        },
+        sink = ltn12.sink.table(sink),
+    }
+    socketutil:set_timeout()
+    local ok, code, _, status = pcall(function() return socket.skip(1, http.request(request)) end)
+    local response = table.concat(sink)
+    socketutil:reset_timeout()
+    if not ok then
+        logger.warn("AudiobookshelfApi: http request failed in getAllProgress:", code)
+        return {}
+    end
+    if code == 200 and response ~= "" then
+        local _, result = pcall(JSON.decode, response)
+        local progress_map = {}
+        if result and result.mediaProgress then
+            for _, p in ipairs(result.mediaProgress) do
+                progress_map[p.libraryItemId] = p
+            end
+        end
+        return progress_map
+    end
+    logger.warn("AudiobookshelfApi: cannot get user progress", status or code)
+    return {}
+end
+
 function AudiobookshelfApi:getProgress(libraryItemId)
     local sink = {}
     local request = {
