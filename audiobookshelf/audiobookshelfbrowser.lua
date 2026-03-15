@@ -71,7 +71,7 @@ function AudiobookshelfBrowser:genItemTableFromLibraries()
         return item_table
     end
     for _, library in ipairs(libraries) do
-        if library.mediaType == "book" then
+        if library.mediaType == "book" and AudiobookshelfApi:hasEbooks(library.id) then
             table.insert(item_table, {
                 text = library.name,
                 type = "library",
@@ -289,9 +289,15 @@ function AudiobookshelfBrowser:openLibrary(id, name)
     for _, sname in ipairs(series_order) do
         local books = series_map[sname]
         table.sort(books, function(a, b) return a.sequence < b.sequence end)
+        local finished_count = 0
+        for _, book in ipairs(books) do
+            if book.progress and book.progress.isFinished then
+                finished_count = finished_count + 1
+            end
+        end
         table.insert(tbl, 1, {
             text = seriesProgressPrefix(books) .. sname,
-            mandatory = tostring(#books) .. " " .. (#books == 1 and "book" or "books"),
+            mandatory = finished_count .. "/" .. #books .. " " .. (#books == 1 and "book" or "books"),
             type = "series",
             series_books = books,
         })

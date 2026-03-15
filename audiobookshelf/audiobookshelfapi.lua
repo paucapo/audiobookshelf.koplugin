@@ -45,6 +45,29 @@ function AudiobookshelfApi:getLibraries()
     return nil
 end
 
+function AudiobookshelfApi:hasEbooks(id)
+    local sink = {}
+    local filters = "ebooks." .. "ZWJvb2s%3D"
+    local request = {
+        url = self.abs_settings:readSetting("server") .. "/api/libraries/" .. id .. "/items?filter=" .. filters .. "&limit=1",
+        method = "GET",
+        headers = {
+            ["Authorization"] = "Bearer " .. self.abs_settings:readSetting("token"),
+            ["User-Agent"] = T("audiobookshelf.koplugin/%1", table.concat(VERSION, ".")),
+        },
+        sink = ltn12.sink.table(sink),
+    }
+    socketutil:set_timeout()
+    local ok, code, _, status = pcall(function() return socket.skip(1, http.request(request)) end)
+    local response = table.concat(sink)
+    socketutil:reset_timeout()
+    if not ok or code ~= 200 or response == "" then
+        return false
+    end
+    local _, result = pcall(JSON.decode, response, JSON.decode.simple)
+    return result and result.total and result.total > 0
+end
+
 function AudiobookshelfApi:getLibraryItems(id)
     local sink = {}
     -- this is "ebooks" base64 encoded, and the URL encoded, to only return library items with ebooks
