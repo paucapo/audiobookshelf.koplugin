@@ -16,6 +16,24 @@ local function progressPrefix(progress)
     return "○ "
 end
 
+local function seriesProgressPrefix(books)
+    local all_finished = true
+    local any_progress = false
+    for _, book in ipairs(books) do
+        if book.progress and book.progress.isFinished then
+            any_progress = true
+        elseif book.progress and book.progress.progress and book.progress.progress > 0 then
+            any_progress = true
+            all_finished = false
+        else
+            all_finished = false
+        end
+    end
+    if all_finished and any_progress then return "● " end
+    if any_progress then return "◐ " end
+    return "○ "
+end
+
 local AudiobookshelfBrowser = Menu:extend{
     no_title = false,
     title = _("Audiobookshelf Browser"),
@@ -272,7 +290,7 @@ function AudiobookshelfBrowser:openLibrary(id, name)
         local books = series_map[sname]
         table.sort(books, function(a, b) return a.sequence < b.sequence end)
         table.insert(tbl, 1, {
-            text = sname,
+            text = seriesProgressPrefix(books) .. sname,
             mandatory = tostring(#books) .. " " .. (#books == 1 and "book" or "books"),
             type = "series",
             series_books = books,
