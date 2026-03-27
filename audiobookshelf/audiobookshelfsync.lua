@@ -35,11 +35,14 @@ function AudiobookshelfSync:push(ui)
 
     local ok, err = pcall(function()
         local percent = self:getPercent(ui)
-        AudiobookshelfApi:updateProgress(book_id, {
+        local data = {
             progress = percent,
             ebookProgress = percent,
-            isFinished = percent >= 0.99,
-        })
+        }
+        if percent >= 0.99 then
+            data.isFinished = true
+        end
+        AudiobookshelfApi:updateProgress(book_id, data)
         logger.dbg("Audiobookshelf: pushed", percent * 100, "%")
     end)
     if not ok then
